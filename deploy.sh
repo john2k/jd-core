@@ -18,6 +18,32 @@ compose_run() {
   "${COMPOSE[@]}" "$@"
 }
 
+# Ne pas utiliser « source .env » : un titre « Reseau: » ou « # Section » mal formé
+# peut être interprété comme une commande shell. On n’exporte que KEY=valeur valides.
+jd_load_dotenv() {
+  local env_file="$1"
+  local line key val
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line//$'\r'/}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
+    [[ "$line" != *=* ]] && continue
+    key="${line%%=*}"
+    key="${key%"${key##*[![:space:]]}"}"
+    key="${key#"${key%%[![:space:]]*}"}"
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    val="${line#*=}"
+    val="${val#"${val%%[![:space:]]*}"}"
+    val=$(printf '%s' "$val" | sed -e 's/[[:space:]]*#.*$//')
+    val="${val%"${val##*[![:space:]]}"}"
+    if [[ "${val:0:1}" == "\"" && "${val: -1}" == "\"" && ${#val} -ge 2 ]]; then
+      val="${val:1:-1}"
+    fi
+    export "${key}=${val}"
+  done <"$env_file"
+}
+
 if docker compose version &>/dev/null 2>&1; then
   COMPOSE=(docker compose)
   echo "   ✅ « docker compose » est disponible."
@@ -77,11 +103,8 @@ fi
 echo "   ✅ .env présent."
 
 echo ""
-echo "📂 Chargement de .env (montage NAS, chemins)…"
-# shellcheck disable=SC1091
-set -a
-source .env
-set +a
+echo "📂 Chargement de .env (montage NAS, chemins) — lignes KEY=valeur uniquement…"
+jd_load_dotenv ".env"
 
 NAS_MP="${NAS_MOUNT_POINT:-/mnt/nas_notes}"
 
