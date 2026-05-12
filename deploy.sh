@@ -92,6 +92,24 @@ else
   compose_run version
 fi
 
+# « docker compose version » ne garantit pas que le démon écoute sur docker.sock.
+if ! docker info &>/dev/null; then
+  echo "   ⚠️  Le démon Docker ne répond pas — tentative systemctl start docker…"
+  if command -v systemctl &>/dev/null; then
+    systemctl enable docker 2>/dev/null || true
+    systemctl start docker 2>/dev/null || true
+    sleep 2
+  fi
+fi
+if ! docker info &>/dev/null; then
+  echo "   ❌ Impossible de joindre le démon Docker (ex. unix:///var/run/docker.sock)."
+  echo "   ➜ Debian/Ubuntu : sudo systemctl enable --now docker   puis : sudo systemctl status docker"
+  echo "   ➜ Si le service échoue au démarrage : sudo journalctl -u docker --no-pager -n 50"
+  echo "   ➜ VM / conteneur sans Docker : installez le moteur sur cette machine ou utilisez un hôte avec Docker."
+  exit 1
+fi
+echo "   ✅ Moteur Docker joignable (docker info OK)."
+
 echo ""
 echo "📄 [2/6] Vérification du fichier .env…"
 if [ ! -f .env ]; then
