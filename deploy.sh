@@ -23,12 +23,19 @@ if docker compose version &>/dev/null 2>&1; then
   echo "   ✅ « docker compose » est disponible."
 elif command -v docker-compose &>/dev/null && docker-compose version &>/dev/null 2>&1; then
   COMPOSE=(docker-compose)
-  echo "   ✅ « docker-compose » (legacy) est disponible."
+  echo "   ✅ « docker-compose » (legacy) est disponible et fonctionne."
 else
   echo "   📦 Installation de Docker et Compose…"
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
   apt-get install -y --no-install-recommends ca-certificates curl gnupg
+
+  # Paquet APT « docker-compose » v1 : souvent cassé sur Ubuntu 24.04+ (Python 3.12, plus de distutils).
+  if command -v docker-compose &>/dev/null && ! docker-compose version &>/dev/null 2>&1; then
+    echo "   ⚠️  Suppression du « docker-compose » v1 APT incompatible (erreur distutils / Python 3.12)…"
+    apt-get remove -y docker-compose python3-docker-compose 2>/dev/null || true
+    apt-get autoremove -y 2>/dev/null || true
+  fi
 
   if ! command -v docker &>/dev/null; then
     apt-get install -y --no-install-recommends docker.io
@@ -41,16 +48,17 @@ else
   elif apt-get install -y --no-install-recommends docker-compose-plugin &>/dev/null && docker compose version &>/dev/null 2>&1; then
     COMPOSE=(docker compose)
     echo "   ✅ Paquet « docker-compose-plugin » installé (APT)."
-  elif apt-get install -y --no-install-recommends docker-compose &>/dev/null && command -v docker-compose &>/dev/null; then
+  elif apt-get install -y --no-install-recommends docker-compose &>/dev/null && docker-compose version &>/dev/null 2>&1; then
     COMPOSE=(docker-compose)
-    echo "   ✅ Paquet « docker-compose » (v1) installé — solution de repli pour les vieux dépôts Debian/Ubuntu."
+    echo "   ✅ Paquet « docker-compose » (v1) installé et exécutable (environnement ancien)."
   else
-    echo "   📥 Le dépôt APT ne fournit pas compose — installation via https://get.docker.com (Docker CE + Compose v2)…"
-    echo "   ⚠️  Remplacement de « docker.io » par Docker CE si nécessaire (conflits de paquets)."
+    echo "   📥 Compose v2 indisponible ou « docker-compose » v1 inutilisable — installation via https://get.docker.com …"
+    echo "   ⚠️  Retrait de « docker.io » / « docker-compose » pour éviter les conflits avec Docker CE."
+    apt-get remove -y docker-compose python3-docker-compose 2>/dev/null || true
     apt-get remove -y docker.io 2>/dev/null || true
     curl -fsSL https://get.docker.com | sh
     COMPOSE=(docker compose)
-    echo "   ✅ Docker installé via le script officiel."
+    echo "   ✅ Docker CE + Compose v2 installés via le script officiel."
   fi
 
   echo "   🔎 Vérification :"
