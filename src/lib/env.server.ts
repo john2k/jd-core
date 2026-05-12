@@ -114,3 +114,24 @@ export function getServiceStatusDefinitions(): Array<{ id: string; name: string;
     { id: "unraid", name: "Unraid", url: getServiceCheckUnraidUrl() },
   ];
 }
+
+/**
+ * Délai max pour les vérifications HTTP des services (VPS → labo à distance).
+ * `SERVICECHECK_FETCH_TIMEOUT_MS` (millisecondes), défaut 45 s, borné 5 s–120 s.
+ */
+export function getServiceCheckFetchTimeoutMs(): number {
+  const raw = readEnv("SERVICECHECK_FETCH_TIMEOUT_MS");
+  const n = raw ? Number.parseInt(raw, 10) : NaN;
+  if (!Number.isFinite(n)) return 45_000;
+  return Math.min(120_000, Math.max(5_000, n));
+}
+
+/** URL complète des métriques Prometheus exposées par Unraid (ex. `http://IP:9221/metrics`). */
+export function getUnraidPrometheusUrl(): string | undefined {
+  return readEnv("UNRAID_PROMETHEUS_URL");
+}
+
+/** Point de montage du pool principal pour calcul d’usage (métriques node_exporter). */
+export function getUnraidPoolMountpoint(): string {
+  return readEnv("UNRAID_POOL_MOUNTPOINT") ?? "/mnt/user";
+}

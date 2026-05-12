@@ -2,6 +2,7 @@ import "server-only";
 import { Agent, fetch as undiciFetch } from "undici";
 
 import {
+  getUnifiApiToken,
   getUnifiIp,
   getUnifiPass,
   getUnifiPort,
@@ -12,6 +13,12 @@ import {
 const insecureAgent = new Agent({
   connect: { rejectUnauthorized: false },
 });
+
+export type UnifiAuthOverrides = {
+  bearerToken?: string | null;
+  totp?: string | null;
+  mfaCookie?: string | null;
+};
 
 export type UnifiSummaryResult =
   | {
@@ -52,12 +59,22 @@ async function authLegacy(
   port: string,
   user: string,
   pass: string,
+  totp?: string | null,
 ): Promise<Auth | null> {
   const base = `https://${host}:${port}`;
+  const body: Record<string, unknown> = {
+    username: user,
+    password: pass,
+    remember: true,
+  };
+  if (totp?.trim()) {
+    body.token = totp.trim();
+    body.ubic_2fa_token = totp.trim();
+  }
   const res = await undiciFetch(`${base}/api/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: user, password: pass, remember: true }),
+    body: JSON.stringify(body),
     dispatcher: insecureAgent,
   });
   let j: { meta?: { rc?: string } } = {};
@@ -72,22 +89,54 @@ async function authLegacy(
   return { mode: "legacy", base, cookie };
 }
 
-async function authUnifiOS(host: string, user: string, pass: string): Promise<Auth | null> {
+type UnifiOsLoginResult =
+  | { kind: "ok"; token: string; base: string }
+  | { kind: "mfa_required" }
+  | { kind: "fail" };
+
+async function tryAuthUnifiOS(
+  host: string,
+  user: string,
+  pass: string,
+  opts?: { totp?: string | null; mfaCookie?: string | null },
+): Promise<UnifiOsLoginResult> {
   const base = `https://${host}`;
+  const body: Record<string, unknown> = {
+    username: user,
+    password: pass,
+    remember: true,
+  };
+  const totp = opts?.totp?.trim();
+  const mfa = opts?.mfaCookie?.trim();
+  if (totp) body.token = totp;
+  if (mfa) {
+    body.mfa_cookie = mfa;
+    body.mfaCookie = mfa;
+  }
   const res = await undiciFetch(`${base}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username: user, password: pass, remember: true }),
+    body: JSON.stringify(body),
     dispatcher: insecureAgent,
   });
-  if (!res.ok) return null;
-  const j = (await res.json()) as {
+  let j: {
     meta?: { rc?: string };
     data?: Array<{ token?: string }>;
-  };
+    mfa_required?: boolean;
+  } = {};
+  try {
+    j = (await res.json()) as typeof j;
+  } catch {
+    return { kind: "fail" };
+  }
   const token = j.data?.[0]?.token;
-  if (!token || j.meta?.rc === "error") return null;
-  return { mode: "unos", base, token };
+  if (token && j.meta?.rc !== "error") {
+    return { kind: "ok", token, base };
+  }
+  if (res.status === 499 || j.meta?.rc === "mfa_required" || j.mfa_required === true) {
+    return { kind: "mfa_required" };
+  }
+  return { kind: "fail" };
 }
 
 async function resolveSiteKey(auth: Auth, siteFromEnv: string | undefined): Promise<string> {
@@ -162,28 +211,60 @@ function ratesFromGw(gw: unknown): { down: number; up: number } {
   return { down, up };
 }
 
-export async function getUnifiSummary(): Promise<UnifiSummaryResult> {
+/**
+ * Résout une session UniFi : jeton Bearer (cookie / `UNIFI_API_TOKEN`), ou login + TOTP / cookie MFA.
+ */
+export async function getUnifiSummary(overrides?: UnifiAuthOverrides): Promise<UnifiSummaryResult> {
   const host = getUnifiIp();
   const user = getUnifiUser();
   const pass = getUnifiPass();
   const siteEnv = getUnifiSiteName();
   const port = getUnifiPort();
 
-  if (!host || !user || !pass) {
+  if (!host) {
     return {
       ok: false,
-      error: "Variables UNIFI_IP, UNIFI_USER et UNIFI_PASS manquantes ou incomplètes.",
+      error: "Variable UNIFI_IP (ou UNIFI_CONTROLLER_HOST) manquante.",
     };
   }
 
-  let auth: Auth | null = await authLegacy(host, port, user, pass);
-  if (!auth) {
-    auth = await authUnifiOS(host, user, pass);
-  }
-  if (!auth) {
+  const bearerFromCookie = overrides?.bearerToken?.trim();
+  const bearerEnv = getUnifiApiToken()?.trim();
+  const bearer = bearerFromCookie || bearerEnv;
+
+  let auth: Auth | null = null;
+
+  if (bearer) {
+    auth = { mode: "unos", base: `https://${host}`, token: bearer };
+  } else if (user && pass) {
+    const totp = overrides?.totp?.trim() || undefined;
+    const mfaCookie = overrides?.mfaCookie?.trim() || undefined;
+
+    auth = await authLegacy(host, port, user, pass, totp);
+    if (!auth) {
+      const os = await tryAuthUnifiOS(host, user, pass, { totp, mfaCookie });
+      if (os.kind === "ok") {
+        auth = { mode: "unos", base: os.base, token: os.token };
+      } else if (os.kind === "mfa_required" && !totp) {
+        return {
+          ok: false,
+          error:
+            "Le contrôleur exige une 2FA / session complémentaire. Saisissez le code TOTP et, si besoin, le cookie MFA sur /auth-setup.",
+        };
+      }
+    }
+    if (!auth) {
+      return {
+        ok: false,
+        error:
+          "Connexion au contrôleur UniFi impossible (identifiants, 2FA ou URL). Utilisez /auth-setup pour un jeton Bearer ou le code TOTP.",
+      };
+    }
+  } else {
     return {
       ok: false,
-      error: "Connexion au contrôleur UniFi impossible (identifiants ou URL).",
+      error:
+        "Identifiants incomplets : UNIFI_USER / UNIFI_PASS, ou jeton UNIFI_API_TOKEN / cookie Bearer (voir /auth-setup).",
     };
   }
 

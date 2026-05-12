@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Users, Wifi } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -115,9 +116,17 @@ export function UnifiWidget() {
       </div>
 
       {err ? (
-        <p className="mt-4 flex-1 rounded-xl border border-red-500/25 bg-red-950/40 px-3 py-2 text-sm text-red-200/90">
-          {err}
-        </p>
+        <div className="mt-4 flex-1 space-y-3">
+          <p className="rounded-xl border border-red-500/25 bg-red-950/40 px-3 py-2 text-sm text-red-200/90">
+            {err}
+          </p>
+          <Link
+            href="/auth-setup"
+            className="inline-flex text-xs font-medium text-violet-400/90 hover:text-violet-300"
+          >
+            Configurer session / 2FA →
+          </Link>
+        </div>
       ) : !summary ? (
         <p className="mt-6 text-sm text-zinc-500">Chargement…</p>
       ) : summary.ok ? (

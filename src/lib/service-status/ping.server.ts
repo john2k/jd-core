@@ -1,5 +1,7 @@
 import "server-only";
 
+import { getServiceCheckFetchTimeoutMs } from "@/lib/env.server";
+
 export type ServicePingResult = {
   id: string;
   name: string;
@@ -12,12 +14,11 @@ export type ServicePingResult = {
   host: string | null;
 };
 
-const TIMEOUT_MS = 12_000;
-
 export async function pingHttpUrl(url: string): Promise<{ ok: boolean; ms: number }> {
+  const timeoutMs = getServiceCheckFetchTimeoutMs();
   const t0 = Date.now();
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
       method: "GET",

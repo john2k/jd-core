@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { getUnifiSummary } from "@/lib/unifi/stats.server";
@@ -13,10 +14,17 @@ export const revalidate = 0;
  * pour accepter les certificats TLS auto-signés). Authentification :
  * cookie de session après `POST …/api/login` (mode legacy), ou Bearer
  * après `POST …/api/auth/login` (UniFi OS) — voir `stats.server.ts`.
+ *
+ * Jeton / TOTP / cookie MFA : cookies httpOnly posés par POST /api/auth/unifi-session (page /auth-setup).
  */
 export async function GET() {
   try {
-    const summary = await getUnifiSummary();
+    const jar = cookies();
+    const summary = await getUnifiSummary({
+      bearerToken: jar.get("jd_unifi_bearer")?.value,
+      totp: jar.get("jd_unifi_totp")?.value,
+      mfaCookie: jar.get("jd_unifi_mfa")?.value,
+    });
     return NextResponse.json(summary);
   } catch (e) {
     const message = e instanceof Error ? e.message : "Erreur inconnue";

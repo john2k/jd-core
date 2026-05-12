@@ -2,6 +2,7 @@ import Image from "next/image";
 import { NotesDashboardPanel } from "@/components/widgets/NotesDashboardPanel";
 import { ServiceStatus } from "@/components/widgets/ServiceStatus";
 import { ShellHint } from "@/components/widgets/ShellHint";
+import { UnraidInsightsWidget } from "@/components/widgets/UnraidInsightsWidget";
 import { UnifiWidget } from "@/components/widgets/UnifiWidget";
 import { YouTubeWidget } from "@/components/widgets/YouTubeWidget";
 import { getNotesDir } from "@/lib/env.server";
@@ -26,15 +27,23 @@ export default function Home() {
               <code className="jd-code">src/lib/env.server.ts</code>.
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-3 opacity-80">
-            <Image
-              src="https://nextjs.org/icons/next.svg"
-              alt=""
-              width={100}
-              height={22}
-              className="brightness-0 invert"
-              priority
-            />
+          <div className="flex shrink-0 flex-col items-end gap-3 sm:flex-row sm:items-center">
+            <a
+              href="/auth-setup"
+              className="text-xs font-medium text-violet-400/90 transition hover:text-violet-300"
+            >
+              Session UniFi / 2FA
+            </a>
+            <div className="flex shrink-0 items-center gap-3 opacity-80">
+              <Image
+                src="https://nextjs.org/icons/next.svg"
+                alt=""
+                width={100}
+                height={22}
+                className="brightness-0 invert"
+                priority
+              />
+            </div>
           </div>
         </header>
 
@@ -53,7 +62,8 @@ export default function Home() {
               <div className="grid auto-rows-fr gap-4 sm:grid-cols-2 sm:gap-5 2xl:grid-cols-3 2xl:gap-6">
                 <UnifiWidget />
                 <ShellHint notesDir={notesDir} variant="bento" />
-                <div className="sm:col-span-2 2xl:col-span-1">
+                <div className="sm:col-span-2 2xl:col-span-1 space-y-4">
+                  <UnraidInsightsWidget />
                   <ServiceStatus />
                 </div>
               </div>
