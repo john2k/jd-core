@@ -1,0 +1,14 @@
+# Copier .env.example vers .env avant le premier lancement (fichier ignoré par Git).
+services:
+  jd-core:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NOTES_DIR: /app/notes
+    volumes:
+      - ./notes:/app/notes
+    restart: unless-stopped

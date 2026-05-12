@@ -3,21 +3,50 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --jd-bg-base: #030307;
+  --jd-glass-bg: rgba(9, 9, 12, 0.45);
+  --jd-glass-border: rgba(255, 255, 255, 0.065);
+  --jd-glass-highlight: rgba(255, 255, 255, 0.05);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    @apply scroll-smooth;
+    color-scheme: dark;
+  }
+
+  body {
+    @apply min-h-screen antialiased text-zinc-100;
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+    background-color: var(--jd-bg-base);
+    background-image:
+      radial-gradient(ellipse 110% 75% at 50% -18%, rgba(82, 82, 91, 0.28), transparent 52%),
+      radial-gradient(ellipse 70% 55% at 100% 0%, rgba(59, 130, 246, 0.06), transparent 48%),
+      radial-gradient(ellipse 55% 45% at 0% 100%, rgba(139, 92, 246, 0.05), transparent 46%),
+      radial-gradient(ellipse 80% 60% at 50% 120%, rgba(16, 185, 129, 0.035), transparent 55%);
+    background-attachment: fixed;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  /* Conteneur principal type vitrine (grand écran) */
+  .jd-container {
+    @apply mx-auto w-full max-w-[min(100%,88rem)] px-4 sm:px-6 lg:px-10 xl:px-14 2xl:px-16;
+  }
+
+  /* Panneau large (section dashboard) */
+  .jd-glass-panel {
+    @apply rounded-[1.75rem] border border-white/[0.065] bg-zinc-950/30 p-5 shadow-[0_8px_48px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.04)] ring-1 ring-inset ring-white/[0.04] backdrop-blur-2xl backdrop-saturate-150 sm:p-7 lg:p-8;
+  }
+
+  /* Widgets (cartes) */
+  .jd-widget {
+    @apply rounded-3xl border border-white/[0.06] bg-white/[0.03] p-5 text-zinc-100 shadow-[0_4px_32px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.035)] ring-1 ring-inset ring-white/[0.045] backdrop-blur-2xl backdrop-saturate-150;
+  }
+
+  .jd-code {
+    @apply rounded-lg border border-white/[0.06] bg-black/30 px-1.5 py-0.5 font-mono text-[0.8125rem] text-emerald-200/90;
+  }
 }
 
 @layer utilities {
