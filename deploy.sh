@@ -25,14 +25,37 @@ elif command -v docker-compose &>/dev/null && docker-compose version &>/dev/null
   COMPOSE=(docker-compose)
   echo "   ✅ « docker-compose » (legacy) est disponible."
 else
-  echo "   📦 Installation via APT : docker.io + docker-compose-plugin…"
+  echo "   📦 Installation de Docker et Compose…"
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
-  apt-get install -y --no-install-recommends ca-certificates curl gnupg docker.io docker-compose-plugin
-  systemctl enable --now docker 2>/dev/null || true
-  COMPOSE=(docker compose)
-  echo "   ✅ Docker installé. Vérification…"
-  docker compose version
+  apt-get install -y --no-install-recommends ca-certificates curl gnupg
+
+  if ! command -v docker &>/dev/null; then
+    apt-get install -y --no-install-recommends docker.io
+    systemctl enable --now docker 2>/dev/null || true
+  fi
+
+  if docker compose version &>/dev/null 2>&1; then
+    COMPOSE=(docker compose)
+    echo "   ✅ « docker compose » disponible avec le moteur déjà installé."
+  elif apt-get install -y --no-install-recommends docker-compose-plugin &>/dev/null && docker compose version &>/dev/null 2>&1; then
+    COMPOSE=(docker compose)
+    echo "   ✅ Paquet « docker-compose-plugin » installé (APT)."
+  elif apt-get install -y --no-install-recommends docker-compose &>/dev/null && command -v docker-compose &>/dev/null; then
+    COMPOSE=(docker-compose)
+    echo "   ✅ Paquet « docker-compose » (v1) installé — solution de repli pour les vieux dépôts Debian/Ubuntu."
+  else
+    echo "   📥 Le dépôt APT ne fournit pas compose — installation via https://get.docker.com (Docker CE + Compose v2)…"
+    echo "   ⚠️  Remplacement de « docker.io » par Docker CE si nécessaire (conflits de paquets)."
+    apt-get remove -y docker.io 2>/dev/null || true
+    curl -fsSL https://get.docker.com | sh
+    COMPOSE=(docker compose)
+    echo "   ✅ Docker installé via le script officiel."
+  fi
+
+  echo "   🔎 Vérification :"
+  docker --version
+  compose_run version
 fi
 
 echo ""
