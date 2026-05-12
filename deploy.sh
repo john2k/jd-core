@@ -127,10 +127,10 @@ if is_mounted "$NAS_MP"; then
 else
   echo "   ⚠️  ${NAS_MP} n’est pas monté — tentative à partir des variables .env…"
   if [ -z "${NAS_MOUNT_SOURCE:-}" ]; then
-    echo "   ❌ NAS_MOUNT_SOURCE est vide dans .env (ex. //serveur/Partage pour CIFS)."
-    echo "   ➜ Définissez NAS_MOUNT_SOURCE (et NAS_MOUNT_OPTIONS pour CIFS) puis relancez."
-    exit 1
-  fi
+    echo "   ⏭️  NAS_MOUNT_SOURCE non défini — mode sans NAS (ex. test local / notes dans le dépôt)."
+    echo "   ➜ Par défaut, docker-compose.yml monte « ./notes » vers l’app ; aucun montage CIFS/NFS requis."
+    echo "   ➜ Pour monter un partage sur ${NAS_MP}, définissez NAS_MOUNT_SOURCE (et NAS_MOUNT_OPTIONS pour CIFS)."
+  else
   mkdir -p "$NAS_MP"
   FS="${NAS_FS_TYPE:-cifs}"
   case "$FS" in
@@ -159,6 +159,7 @@ else
     exit 1
   fi
   echo "   ✅ Montage NAS réussi."
+  fi
 fi
 
 echo ""
